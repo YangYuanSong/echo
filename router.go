@@ -3,25 +3,29 @@ package echo
 import "net/http"
 
 type (
+	// 路由器  - 在Echo服务器实例上注册的所有路由
 	// Router is the registry of all registered routes for an `Echo` instance for
 	// request matching and URL path parameter parsing.
 	Router struct {
-		tree   *node
-		routes map[string]*Route
-		echo   *Echo
+		tree   *node                // 树形结构保存的路由节点
+		routes map[string]*Route    // 所有的路由记录
+		echo   *Echo                // Echo 服务器（全局资源）
 	}
+	// 节点采用指向父节点和保存子节点指针的方式实现树形结构
+	// 查找比较快速
 	node struct {
-		kind          kind
-		label         byte
-		prefix        string
-		parent        *node
-		children      children
-		ppath         string
-		pnames        []string
-		methodHandler *methodHandler
+		kind          kind              // 
+		label         byte              // 
+		prefix        string            // 前缀
+		parent        *node             // 父节点指针
+		children      children          // 子节点指针切片
+		ppath         string            // 
+		pnames        []string          // 
+		methodHandler *methodHandler    // 请求方法处理程序集合的指针
 	}
-	kind uint8
-	children []*node
+	kind          uint8
+	children      []*node
+	//方法绑定的Handler集合
 	methodHandler struct {
 		connect  HandlerFunc
 		delete   HandlerFunc
@@ -43,6 +47,7 @@ const (
 	akind
 )
 
+// 新建一个路由器
 // NewRouter returns a new Router instance.
 func NewRouter(e *Echo) *Router {
 	return &Router{
@@ -54,6 +59,7 @@ func NewRouter(e *Echo) *Router {
 	}
 }
 
+// 向路由器中注册一条路由信息
 // Add registers a new route for method and path with matching handler.
 func (r *Router) Add(method, path string, h HandlerFunc) {
 	// Validate path
@@ -93,6 +99,7 @@ func (r *Router) Add(method, path string, h HandlerFunc) {
 	r.insert(method, path, h, skind, ppath, pnames)
 }
 
+// 向路由器新增一条路由
 func (r *Router) insert(method, path string, h HandlerFunc, t kind, ppath string, pnames []string) {
 	// Adjust max param
 	l := len(pnames)
@@ -182,6 +189,7 @@ func (r *Router) insert(method, path string, h HandlerFunc, t kind, ppath string
 	}
 }
 
+// 新增一个路由节点
 func newNode(t kind, pre string, p *node, c children, mh *methodHandler, ppath string, pnames []string) *node {
 	return &node{
 		kind:          t,
@@ -195,10 +203,12 @@ func newNode(t kind, pre string, p *node, c children, mh *methodHandler, ppath s
 	}
 }
 
+// 给一个节点增加子节点
 func (n *node) addChild(c *node) {
 	n.children = append(n.children, c)
 }
 
+// 一个节点上根据label和kind查找某个子节点
 func (n *node) findChild(l byte, t kind) *node {
 	for _, c := range n.children {
 		if c.label == l && c.kind == t {
@@ -208,6 +218,7 @@ func (n *node) findChild(l byte, t kind) *node {
 	return nil
 }
 
+// 一个节点上根据label查找子节点
 func (n *node) findChildWithLabel(l byte) *node {
 	for _, c := range n.children {
 		if c.label == l {
@@ -217,6 +228,7 @@ func (n *node) findChildWithLabel(l byte) *node {
 	return nil
 }
 
+// 一个节点上根据kind查找子节点
 func (n *node) findChildByKind(t kind) *node {
 	for _, c := range n.children {
 		if c.kind == t {
@@ -226,6 +238,7 @@ func (n *node) findChildByKind(t kind) *node {
 	return nil
 }
 
+// 一个节点上增加请求方法处理程序
 func (n *node) addHandler(method string, h HandlerFunc) {
 	switch method {
 	case http.MethodConnect:
@@ -253,6 +266,7 @@ func (n *node) addHandler(method string, h HandlerFunc) {
 	}
 }
 
+// 节点上根据请求方法查找处理程序
 func (n *node) findHandler(method string) HandlerFunc {
 	switch method {
 	case http.MethodConnect:
@@ -282,6 +296,7 @@ func (n *node) findHandler(method string) HandlerFunc {
 	}
 }
 
+// 节点上是否有请求方法不允许
 func (n *node) checkMethodNotAllowed() HandlerFunc {
 	for _, m := range methods {
 		if h := n.findHandler(m); h != nil {
@@ -291,6 +306,7 @@ func (n *node) checkMethodNotAllowed() HandlerFunc {
 	return NotFoundHandler
 }
 
+// 在路由器中给上下文查找处理句柄
 // Find lookup a handler registered for method and path. It also parses URL for path
 // parameters and load them into context.
 //
@@ -336,14 +352,10 @@ func (r *Router) Find(method, path string, c Context) {
 			}
 		}
 
-
 		if l == pl {
 			// Continue search
 			search = search[l:]
 		} else {
-			if nn == nil { // Issue #1348
-				return // Not found
-			}
 			cn = nn
 			search = ns
 			if nk == pkind {
@@ -351,6 +363,8 @@ func (r *Router) Find(method, path string, c Context) {
 			} else if nk == akind {
 				goto Any
 			}
+			// Not found
+			return
 		}
 
 		if search == "" {
@@ -400,9 +414,6 @@ func (r *Router) Find(method, path string, c Context) {
 			if nn != nil {
 				cn = nn
 				nn = cn.parent // Next (Issue #954)
-				if nn != nil {
-					nk = nn.kind
-				}
 				search = ns
 				if nk == pkind {
 					goto Param
@@ -410,7 +421,8 @@ func (r *Router) Find(method, path string, c Context) {
 					goto Any
 				}
 			}
-			return // Not found
+			// Not found
+			return
 		}
 		pvalues[len(cn.pnames)-1] = search
 		break

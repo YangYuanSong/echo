@@ -1,3 +1,6 @@
+// 请求上下文对象
+// 对请求、输出 两个过程中的数据和方法进行封装
+
 package echo
 
 import (
@@ -20,118 +23,150 @@ type (
 	// Context represents the context of the current HTTP request. It holds request and
 	// response objects, path, path parameters, data and registered handler.
 	Context interface {
+		// 获取上下文中的请求信息
 		// Request returns `*http.Request`.
 		Request() *http.Request
 
+		// 设置上下文中的请求信息
 		// SetRequest sets `*http.Request`.
 		SetRequest(r *http.Request)
 
-		// SetResponse sets `*Response`.
-		SetResponse(r *Response)
-
+		// 获取上下文中的响应信息
 		// Response returns `*Response`.
 		Response() *Response
-
+		
+		// 上下文中的链接是否是TLS连接
 		// IsTLS returns true if HTTP connection is TLS otherwise false.
 		IsTLS() bool
 
+		// 上下文中的链接是否是WebSocket连接
 		// IsWebSocket returns true if HTTP connection is WebSocket otherwise false.
 		IsWebSocket() bool
 
+		// 上下文中的协议类型
 		// Scheme returns the HTTP protocol scheme, `http` or `https`.
 		Scheme() string
 
+		// 上下文中的客户端真实IP
 		// RealIP returns the client's network address based on `X-Forwarded-For`
 		// or `X-Real-IP` request header.
 		RealIP() string
 
+		// 上下文中的请求的Path
 		// Path returns the registered path for the handler.
 		Path() string
 
+		// 设置上下文中的Path
 		// SetPath sets the registered path for the handler.
 		SetPath(p string)
 
+		// 根据参数名称获取上下文中的参数
 		// Param returns path parameter by name.
 		Param(name string) string
 
+		// 上下文中的所有参数名称
 		// ParamNames returns path parameter names.
 		ParamNames() []string
 
+		// 设置上下文中的参数名称
 		// SetParamNames sets path parameter names.
 		SetParamNames(names ...string)
 
+		// 上下文中的所有参数值
 		// ParamValues returns path parameter values.
 		ParamValues() []string
 
+		// 设置上下文中的参数值
 		// SetParamValues sets path parameter values.
 		SetParamValues(values ...string)
 
+		// 根据参数名称获取上下文中的查询参数值
 		// QueryParam returns the query param for the provided name.
 		QueryParam(name string) string
 
+		// 获取上下文中的所有查询参数
 		// QueryParams returns the query parameters as `url.Values`.
 		QueryParams() url.Values
 
+		// 获取上下文中的查询字符串
 		// QueryString returns the URL query string.
 		QueryString() string
 
+		// 根据表单名称获取上下文中的表单值
 		// FormValue returns the form field value for the provided name.
 		FormValue(name string) string
 
+		// 获取上下文中的所有表单数据
 		// FormParams returns the form parameters as `url.Values`.
 		FormParams() (url.Values, error)
 
+		// 根据名称获取上下文中的表单文件数据
 		// FormFile returns the multipart form file for the provided name.
 		FormFile(name string) (*multipart.FileHeader, error)
 
+		// 获取上下文中的多表单
 		// MultipartForm returns the multipart form.
 		MultipartForm() (*multipart.Form, error)
 
+		// 根据名称获取上下文中的Cookie数据
 		// Cookie returns the named cookie provided in the request.
 		Cookie(name string) (*http.Cookie, error)
 
+		// 设置上下文中的Cookie数据
 		// SetCookie adds a `Set-Cookie` header in HTTP response.
 		SetCookie(cookie *http.Cookie)
 
+		// 获取上下文中的所有Cookie数据
 		// Cookies returns the HTTP cookies sent with the request.
 		Cookies() []*http.Cookie
 
+		// 获取上下文中的属性信息
 		// Get retrieves data from the context.
 		Get(key string) interface{}
 
+		// 设置上下文中的属性信息
 		// Set saves data in the context.
 		Set(key string, val interface{})
 
+		// 上下文中的请求body绑定到数据结构上
 		// Bind binds the request body into provided type `i`. The default binder
 		// does it based on Content-Type header.
 		Bind(i interface{}) error
 
+        // 上下文中的验证，一般在Bind后进行调用
 		// Validate validates provided `i`. It is usually called after `Context#Bind()`.
 		// Validator must be registered using `Echo#Validator`.
 		Validate(i interface{}) error
-
+	
+		// 上下文中的数据呈现模板，需要Echo.Renderer注册
 		// Render renders a template with data and sends a text/html response with status
 		// code. Renderer must be registered using `Echo.Renderer`.
 		Render(code int, name string, data interface{}) error
 
+		// HTML响应
 		// HTML sends an HTTP response with status code.
 		HTML(code int, html string) error
 
+		// HTML响应
 		// HTMLBlob sends an HTTP blob response with status code.
 		HTMLBlob(code int, b []byte) error
 
+		// Text响应
 		// String sends a string response with status code.
 		String(code int, s string) error
 
+		// JSON响应
 		// JSON sends a JSON response with status code.
 		JSON(code int, i interface{}) error
 
+		// 漂亮的JOSN响应（自定义缩进字符）
 		// JSONPretty sends a pretty-print JSON with status code.
 		JSONPretty(code int, i interface{}, indent string) error
 
 		// JSONBlob sends a JSON blob response with status code.
 		JSONBlob(code int, b []byte) error
 
+		// JSONP响应
 		// JSONP sends a JSONP response with status code. It uses `callback` to construct
 		// the JSONP payload.
 		JSONP(code int, callback string, i interface{}) error
@@ -149,69 +184,85 @@ type (
 		// XMLBlob sends an XML blob response with status code.
 		XMLBlob(code int, b []byte) error
 
+		// 二进制类型的大对象 响应
 		// Blob sends a blob response with status code and content type.
 		Blob(code int, contentType string, b []byte) error
 
+		// 数据流响应
 		// Stream sends a streaming response with status code and content type.
 		Stream(code int, contentType string, r io.Reader) error
 
+		// 文件响应
 		// File sends a response with the content of the file.
 		File(file string) error
 
+		// 文件 附件响应
 		// Attachment sends a response as attachment, prompting client to save the
 		// file.
 		Attachment(file string, name string) error
 
+		// 文件 内联响应
 		// Inline sends a response as inline, opening the file in the browser.
 		Inline(file string, name string) error
 
+		// 只有响应头无响应体的响应
 		// NoContent sends a response with no body and a status code.
 		NoContent(code int) error
 
+		// 转向响应
 		// Redirect redirects the request to a provided URL with status code.
 		Redirect(code int, url string) error
 
+		// 错误
 		// Error invokes the registered HTTP error handler. Generally used by middleware.
 		Error(err error)
 
+		// 获取上下文的处理程序
 		// Handler returns the matched handler by router.
 		Handler() HandlerFunc
 
+		// 设置上下文的处理程序
 		// SetHandler sets the matched handler by router.
 		SetHandler(h HandlerFunc)
 
+		// 获取日期器对象实例
 		// Logger returns the `Logger` instance.
 		Logger() Logger
 
+		// 获取服务器等全局对象实例
 		// Echo returns the `Echo` instance.
 		Echo() *Echo
 
+		// 重置一个请求上下文
 		// Reset resets the context after request completes. It must be called along
 		// with `Echo#AcquireContext()` and `Echo#ReleaseContext()`.
 		// See `Echo#ServeHTTP()`
 		Reset(r *http.Request, w http.ResponseWriter)
 	}
 
+	// 定义请求上下文数据结构
+	// 并通过方法实现了 Context 接口
 	context struct {
-		request  *http.Request
-		response *Response
-		path     string
-		pnames   []string
-		pvalues  []string
-		query    url.Values
-		handler  HandlerFunc
-		store    Map
-		echo     *Echo
-		lock     sync.RWMutex
+		request  *http.Request    // 请求
+		response *Response        // 响应
+		path     string           // 请求 - 路径
+		pnames   []string         // 参数名
+		pvalues  []string         // 参数值
+		query    url.Values       // 查询变量
+		handler  HandlerFunc      // 处理句柄
+		store    Map              // 存储数据（响应过程中产生的数据）
+		echo     *Echo            // 服务器对象（全局类的数据）
+		lock     sync.RWMutex     // 存储数据（读写锁）
 	}
 )
 
 const (
-	defaultMemory = 32 << 20 // 32 MB
-	indexPage     = "index.html"
-	defaultIndent = "  "
+	defaultMemory = 32 << 20      // 默认 32 MB 内存用于解析Form表单（MultipartForm）数据
+	indexPage     = "index.html"  // 默认响应文件（静态文件响应）
+	defaultIndent = "  "          // 默认缩进2个空格字符（用于JSON和XML的响应内容缩进）
 )
 
+// 响应头中写ContentType（网络文件的类型和网页的编码）
 func (c *context) writeContentType(value string) {
 	header := c.Response().Header()
 	if header.Get(HeaderContentType) == "" {
@@ -229,10 +280,6 @@ func (c *context) SetRequest(r *http.Request) {
 
 func (c *context) Response() *Response {
 	return c.response
-}
-
-func (c *context) SetResponse(r *Response) {
-	c.response = r
 }
 
 func (c *context) IsTLS() bool {
@@ -418,6 +465,7 @@ func (c *context) String(code int, s string) (err error) {
 	return c.Blob(code, MIMETextPlainCharsetUTF8, []byte(s))
 }
 
+// JSONP大对象响应
 func (c *context) jsonPBlob(code int, callback string, i interface{}) (err error) {
 	enc := json.NewEncoder(c.response)
 	_, pretty := c.QueryParams()["pretty"]
@@ -438,6 +486,7 @@ func (c *context) jsonPBlob(code int, callback string, i interface{}) (err error
 	return
 }
 
+// JSON响应
 func (c *context) json(code int, i interface{}, indent string) error {
 	enc := json.NewEncoder(c.response)
 	if indent != "" {

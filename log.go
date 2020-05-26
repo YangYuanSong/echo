@@ -9,16 +9,16 @@ import (
 type (
 	// Logger defines the logging interface.
 	Logger interface {
-		Output() io.Writer
-		SetOutput(w io.Writer)
-		Prefix() string
-		SetPrefix(p string)
-		Level() log.Lvl
-		SetLevel(v log.Lvl)
-		SetHeader(h string)
-		Print(i ...interface{})
-		Printf(format string, args ...interface{})
-		Printj(j log.JSON)
+		Output() io.Writer              // 输出IO
+		SetOutput(w io.Writer)          // 设置输出io
+		Prefix() string                 // 前缀
+		SetPrefix(p string)             // 设置前缀
+		Level() log.Lvl                 // 日志等级
+		SetLevel(v log.Lvl)             // 设置日志等级（DEBUG、INFO、WARN、ERROR、PANIC、FATAL）
+		SetHeader(h string)             // 设置头信息
+		Print(i ...interface{})         // 打印日志
+		Printf(format string, args ...interface{}) // 格式化打印日志
+		Printj(j log.JSON)                         // JSON格式打印日志
 		Debug(i ...interface{})
 		Debugf(format string, args ...interface{})
 		Debugj(j log.JSON)

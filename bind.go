@@ -88,36 +88,40 @@ func (b *DefaultBinder) Bind(i interface{}, c Context) (err error) {
 }
 
 func (b *DefaultBinder) bindData(ptr interface{}, data map[string][]string, tag string) error {
-	if ptr == nil || len(data) == 0 {
+	if len(data) == 0 {
 		return nil
 	}
-	typ := reflect.TypeOf(ptr).Elem()
-	val := reflect.ValueOf(ptr).Elem()
+	typ := reflect.TypeOf(ptr).Elem()  //元素类型
+	val := reflect.ValueOf(ptr).Elem() //元素的值
 
+	//map[string]interface{} 映射类型
 	if m, ok := ptr.(*map[string]interface{}); ok {
 		for k, v := range data {
 			(*m)[k] = v[0]
 		}
 		return nil
 	}
-
+	
+	//支持映射类型和结构体类型数据绑定
 	if typ.Kind() != reflect.Struct {
 		return errors.New("binding element must be a struct")
 	}
 
+	//遍历结构体字段
 	for i := 0; i < typ.NumField(); i++ {
-		typeField := typ.Field(i)
-		structField := val.Field(i)
-		if !structField.CanSet() {
+		typeField := typ.Field(i)   //字段 - 类型
+		structField := val.Field(i) //字段 - 值
+		if !structField.CanSet() {  //字段值是否可更改
 			continue
 		}
-		structFieldKind := structField.Kind()
-		inputFieldName := typeField.Tag.Get(tag)
+		structFieldKind := structField.Kind()       //字段值     - 映射类型
+		inputFieldName := typeField.Tag.Get(tag)    //字段类型 - 获取标签（作为绑定后字段的名称）
 
 		if inputFieldName == "" {
-			inputFieldName = typeField.Name
+			inputFieldName = typeField.Name         //标签为空取映射类型名称作为绑定后字段的名称
 			// If tag is nil, we inspect if the field is a struct.
 			if _, ok := bindUnmarshaler(structField); !ok && structFieldKind == reflect.Struct {
+				//字段是结构体，则再次进行绑定（结构体嵌套时候，字段名不能设计成相同的）
 				if err := b.bindData(structField.Addr().Interface(), data, tag); err != nil {
 					return err
 				}
@@ -125,13 +129,13 @@ func (b *DefaultBinder) bindData(ptr interface{}, data map[string][]string, tag 
 			}
 		}
 
-		inputValue, exists := data[inputFieldName]
+		inputValue, exists := data[inputFieldName] //取待绑定的值 []string
 		if !exists {
 			// Go json.Unmarshal supports case insensitive binding.  However the
 			// url params are bound case sensitive which is inconsistent.  To
 			// fix this we must check all of the map values in a
 			// case-insensitive search.
-			inputFieldName = strings.ToLower(inputFieldName)
+			inputFieldName = strings.ToLower(inputFieldName)   //键转换为小写（通信过程中参数设计建议都设计成小写格式，避免绑定的时候出现不一致）
 			for k, v := range data {
 				if strings.ToLower(k) == inputFieldName {
 					inputValue = v
@@ -171,6 +175,7 @@ func (b *DefaultBinder) bindData(ptr interface{}, data map[string][]string, tag 
 	return nil
 }
 
+//根据反射类型设置字段的值
 func setWithProperType(valueKind reflect.Kind, val string, structField reflect.Value) error {
 	// But also call it here, in case we're dealing with an array of BindUnmarshalers
 	if ok, err := unmarshalField(valueKind, val, structField); ok {
@@ -214,6 +219,8 @@ func setWithProperType(valueKind reflect.Kind, val string, structField reflect.V
 	return nil
 }
 
+//字符串数据绑定到映射字段值
+//根据映射字段类型做判断（是否是指针）
 func unmarshalField(valueKind reflect.Kind, val string, field reflect.Value) (bool, error) {
 	switch valueKind {
 	case reflect.Ptr:
@@ -223,6 +230,7 @@ func unmarshalField(valueKind reflect.Kind, val string, field reflect.Value) (bo
 	}
 }
 
+// 将映射字段值 转换成 BindUnmarshaler 接口类型
 // bindUnmarshaler attempts to unmarshal a reflect.Value into a BindUnmarshaler
 func bindUnmarshaler(field reflect.Value) (BindUnmarshaler, bool) {
 	ptr := reflect.New(field.Type())
@@ -235,6 +243,7 @@ func bindUnmarshaler(field reflect.Value) (BindUnmarshaler, bool) {
 	return nil, false
 }
 
+// 将映射字段值 转换成 encoding.TextUnmarshaler 接口类型
 // textUnmarshaler attempts to unmarshal a reflect.Value into a TextUnmarshaler
 func textUnmarshaler(field reflect.Value) (encoding.TextUnmarshaler, bool) {
 	ptr := reflect.New(field.Type())
@@ -247,14 +256,15 @@ func textUnmarshaler(field reflect.Value) (encoding.TextUnmarshaler, bool) {
 	return nil, false
 }
 
+//非指针型映射字段进行字段值绑定
 func unmarshalFieldNonPtr(value string, field reflect.Value) (bool, error) {
 	if unmarshaler, ok := bindUnmarshaler(field); ok {
-		err := unmarshaler.UnmarshalParam(value)
-		field.Set(reflect.ValueOf(unmarshaler).Elem())
+		err := unmarshaler.UnmarshalParam(value)          //映射字段自己实现 UnmarshalParam 方法，把value绑定到unmarshaler接口上
+		field.Set(reflect.ValueOf(unmarshaler).Elem())    //映射字段值设置成unmarshaler接口指向的元素，完成绑定操作
 		return true, err
 	}
 	if unmarshaler, ok := textUnmarshaler(field); ok {
-		err := unmarshaler.UnmarshalText([]byte(value))
+		err := unmarshaler.UnmarshalText([]byte(value))   //映射字段自己实现 UnmarshalText 方法，把value绑定到unmarshaler接口上
 		field.Set(reflect.ValueOf(unmarshaler).Elem())
 		return true, err
 	}
@@ -262,6 +272,8 @@ func unmarshalFieldNonPtr(value string, field reflect.Value) (bool, error) {
 	return false, nil
 }
 
+//指针型映射字段进行映射字段值绑定
+//找到指针实际指向的实际元素
 func unmarshalFieldPtr(value string, field reflect.Value) (bool, error) {
 	if field.IsNil() {
 		// Initialize the pointer to a nil value
@@ -270,6 +282,7 @@ func unmarshalFieldPtr(value string, field reflect.Value) (bool, error) {
 	return unmarshalFieldNonPtr(value, field.Elem())
 }
 
+//设置整型字段值
 func setIntField(value string, bitSize int, field reflect.Value) error {
 	if value == "" {
 		value = "0"
@@ -281,6 +294,7 @@ func setIntField(value string, bitSize int, field reflect.Value) error {
 	return err
 }
 
+//设置无符号整型字段值
 func setUintField(value string, bitSize int, field reflect.Value) error {
 	if value == "" {
 		value = "0"
@@ -292,6 +306,7 @@ func setUintField(value string, bitSize int, field reflect.Value) error {
 	return err
 }
 
+//设置Bool型字段值
 func setBoolField(value string, field reflect.Value) error {
 	if value == "" {
 		value = "false"
@@ -303,6 +318,7 @@ func setBoolField(value string, field reflect.Value) error {
 	return err
 }
 
+//设置浮点型字段值
 func setFloatField(value string, bitSize int, field reflect.Value) error {
 	if value == "" {
 		value = "0.0"
